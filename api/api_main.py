@@ -17,7 +17,7 @@ router = APIRouter(prefix='/tts', tags=['tts'])
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu' # MPS causa audio feos
 
-audio_path = "/Users/beltre.wilton/apps/waves/audios"
+audio_path = "/Users/beltre.wilton/apps/waves.api/audios"
 
 
 @router.post("/synth",)
