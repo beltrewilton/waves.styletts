@@ -39,7 +39,7 @@ async def synth(info: Info):
         return {
             "synth_wav_file": synth_wav_file,
             "synth_name": synth_name,
-            "response": "synth completed"
+            "response": "completed"
         }
     except Exception as ex:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ex))
