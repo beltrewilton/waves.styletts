@@ -1,6 +1,8 @@
 import sys
 import os
 # sys.path.append(f"{os.getcwd()}/../StyleTTS2")
+import subprocess
+import pathlib
 import nltk
 nltk.download('punkt')
 
@@ -129,7 +131,7 @@ sampler = DiffusionSampler(
 )
 
 
-def inference(text, ref_s, alpha = 0.3, beta = 0.7, diffusion_steps=5, embedding_scale=1):
+def inference(text, ref_s, alpha = 0.3, beta = 0.7, diffusion_steps=5, embedding_scale=1, speed=1):
     text = text.strip()
     ps = global_phonemizer.phonemize([text])
     ps = word_tokenize(ps[0])
@@ -160,7 +162,7 @@ def inference(text, ref_s, alpha = 0.3, beta = 0.7, diffusion_steps=5, embedding
         d = model.predictor.text_encoder(d_en, s, input_lengths, text_mask)
 
         x, _ = model.predictor.lstm(d)
-        duration = model.predictor.duration_proj(x)
+        duration = model.predictor.duration_proj(x) / speed
 
         duration = torch.sigmoid(duration).sum(axis=-1)
         pred_dur = torch.round(duration.squeeze()).clamp(min=1)
@@ -344,10 +346,30 @@ def STinference(text, ref_s, ref_text, alpha = 0.3, beta = 0.7, diffusion_steps=
     return out.squeeze().cpu().numpy()[..., :-50] # weird pulse at the end of the model, need to be fixed later
 
 
-def save_wav(synth_wav_file, audio_ref, sr):
+def save_wav(synth_wav_file, audio_data, sr):
     from scipy.io import wavfile
-    scaled_data = np.int16(audio_ref * 32767) #TODO ???? Scale the data to the appropriate range for 16-bit WAV files
+    scaled_data = np.int16(audio_data * 32767) #TODO ???? Scale the data to the appropriate range for 16-bit WAV files
     wavfile.write(synth_wav_file, sr, scaled_data)
+
+
+def stretch_with_rubberband(synth_wav_file: str, audio_ref: str) -> (str, str):
+    RUBBERBAND = '/Users/beltre.wilton/apps/rubberband/rubberband-3.3.0-gpl-executable-macos/rubberband-r3'
+    wave, sr = librosa.load(audio_ref)
+    duration = wave.shape[0] / sr
+    tmp_file = synth_wav_file.replace(".wav", "-stretch.wav")
+    command = [RUBBERBAND, '--duration', str(duration), '--formant', '--quiet', synth_wav_file, tmp_file]
+    try:
+        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False)
+        if result.returncode != 0:
+            raise RuntimeError(f"Error encontrado durante ejecucion, {result.stderr}")
+
+        pathlib.Path(synth_wav_file).unlink(missing_ok=True)
+        pathlib.Path(tmp_file).replace(target=synth_wav_file)
+
+        return result.stdout, result.stderr
+    except subprocess.CalledProcessError as e:
+        print(f"Error while running rubberband command: {e}")
+        return result.stdout, result.stderr
 
 
 if __name__ == "__main__":
