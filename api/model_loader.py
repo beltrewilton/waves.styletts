@@ -7,6 +7,7 @@ import nltk
 nltk.download('punkt')
 
 import torch
+import torchaudio
 torch.manual_seed(0)
 torch.backends.cudnn.benchmark = False
 torch.backends.cudnn.deterministic = True
@@ -39,6 +40,8 @@ textclenaer = TextCleaner()
 to_mel = torchaudio.transforms.MelSpectrogram(
     n_mels=80, n_fft=2048, win_length=1200, hop_length=300)
 mean, std = -4, 4 #TODO: porque?
+
+knn_vc = torch.hub.load('bshall/knn-vc', 'knn_vc', prematched=True, trust_repo=True, pretrained=True, device='cpu')
 
 
 def length_to_mask(lengths):
@@ -352,7 +355,7 @@ def save_wav(synth_wav_file, audio_data, sr):
     wavfile.write(synth_wav_file, sr, scaled_data)
 
 
-def stretch_with_rubberband(synth_wav_file: str, audio_ref: str) -> (str, str):
+def stretch_with_rubberband(synth_wav_file: str, audio_ref: str, use_vc = True) -> (str, str):
     RUBBERBAND = '/Users/beltre.wilton/apps/rubberband/rubberband-3.3.0-gpl-executable-macos/rubberband-r3'
     wave, sr = librosa.load(audio_ref)
     duration = wave.shape[0] / sr
@@ -366,14 +369,40 @@ def stretch_with_rubberband(synth_wav_file: str, audio_ref: str) -> (str, str):
         pathlib.Path(synth_wav_file).unlink(missing_ok=True)
         pathlib.Path(tmp_file).replace(target=synth_wav_file)
 
+        if use_vc:
+            print("~~~ Usando VC KNN : bshall/knn-vc ~~~~")
+            _knnvc(synth_wav_file, audio_ref)
+
         return result.stdout, result.stderr
     except subprocess.CalledProcessError as e:
         print(f"Error while running rubberband command: {e}")
         return result.stdout, result.stderr
 
 
+def _knnvc(synth_wav_file: str, audio_ref: []):
+    # path to 16kHz, single-channel, source waveform
+    # src_wav_path = '/content/D.wav'
+    # list of paths to all reference waveforms (each must be 16kHz, single-channel) from the target speaker
+    # ref_wav_paths = ['/content/D_s.wav', ]
+
+    synth, sr = librosa.load(synth_wav_file, sr=16000, mono=True)
+    refer, sr = librosa.load(audio_ref, sr=16000, mono=True)
+
+    synth = torch.from_numpy(synth)
+    refer = torch.from_numpy(refer)
+
+    query_seq = knn_vc.get_features(synth)
+    matching_set = knn_vc.get_matching_set([refer])
+
+    out_wav = knn_vc.match(query_seq, matching_set, topk=4)
+
+    pathlib.Path(synth_wav_file).unlink(missing_ok=True)
+    torchaudio.save(synth_wav_file, out_wav[None], 16_000)
+
+
+
 if __name__ == "__main__":
-    text = "The check in this very curious act, I got a headache In all the territory of Greenland there are only four traffic lights In the whole island, a man offered us even a few fock guards As a souvenir, they also have fock guards, bear guards A very peculiar light trade"
+    text = "I've always thought Mike Russell is absolutely fantastic. He's just the most amazing person on the planet. I love him so much. He's great. He's really, really great."
 
     reference_dicts = {}
     reference_dicts['696_92939'] = "../StyleTTS2/Demo/reference_audio/8J7x3I7x2YM_PART_.wav"

@@ -20,6 +20,7 @@ class Info(BaseModel):
     beta: float = 0.2
     diffusion_steps: int = 10
     embedding_scale: int = 1
+    use_vc: bool = True
 
 router = APIRouter(prefix='/tts', tags=['tts'])
 
@@ -42,7 +43,8 @@ async def synth(info: Info):
         wav = inference(info.text, ref_s, alpha=alpha, beta=beta, diffusion_steps=diffusion_steps, embedding_scale=embedding_scale)
         synth_wav_file = f"{audio_path[:-4]}_synth_a-{alpha}_b-{beta}_df-{diffusion_steps}_em-{embedding_scale}.wav"
         save_wav(synth_wav_file, wav, 24_000)
-        stretch_with_rubberband(synth_wav_file, audio_path)
+        stretch_with_rubberband(synth_wav_file, audio_path, use_vc = info.use_vc)
+
 
         return {
             "synth_wav_file": synth_wav_file,
@@ -55,10 +57,11 @@ async def synth(info: Info):
 
 
 def standalone():
-    text = "The function returns the number of bytes used in memory by the given Python Tuple object. This is done with the use of get_sizeof that determines how much data can be stored on the device or server memory using the Python built-in module for data."
+    text = "I've always thought Mike Russell is absolutely fantastic. He's just the most amazing person on the planet. I love him so much. He's great. He's really, really great."
     try:
         # text = "The check in this very curious act, I got a headache In all the territory of Greenland there are only four traffic lights In the whole island, a man offered us even a few fock guards As a souvenir, they also have fock guards, bear guards A very peculiar light trade"
-        abs_path = f"/Users/beltre.wilton/apps/linkedingenai/llama/results/elonmusk.wav"
+        # abs_path = f"/Users/beltre.wilton/apps/linkedingenai/llama/results/elonmusk.wav"
+        abs_path = f"/Users/beltre.wilton/apps/REAPER/build/mike.wav"
         noise = torch.randn(1, 1, 256).to(device)
         ref_s = compute_style(abs_path)
         # wav = inference(info.text, ref_s, alpha=0.3, beta=0.7, diffusion_steps=5, embedding_scale=1)
@@ -68,7 +71,7 @@ def standalone():
         embedding_scale = 1
         wav = inference(text, ref_s, alpha=alpha, beta=beta, diffusion_steps=diffusion_steps,
                         embedding_scale=embedding_scale)
-        synth_wav_file = f"/Users/beltre.wilton/apps/linkedingenai/llama/results/elonmusk_synth.wav"
+        synth_wav_file = f"/Users/beltre.wilton/apps/REAPER/build/mike_synth.wav"
         save_wav(synth_wav_file, wav, 24_000)
 
     except Exception as ex:

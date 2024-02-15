@@ -4,6 +4,7 @@ p = f"{os.getcwd()}/api"
 os.chdir(p)
 sys.path.append(f"{os.getcwd()}/../StyleTTS2")
 os.environ["PHONEMIZER_ESPEAK_LIBRARY"]="/opt/homebrew/Cellar/espeak/1.48.04_1/lib/libespeak.dylib"
+os.environ["PYTORCH_ENABLE_MPS_FALLBACK"]="1"
 
 
 from fastapi import FastAPI
